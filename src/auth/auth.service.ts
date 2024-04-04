@@ -81,6 +81,13 @@ export class AuthService extends PrismaClient implements OnModuleInit {
       }
       const isPasswordValid = bcrypt.compareSync(password, user.password);
 
+      if (!isPasswordValid) {
+        throw new RpcException({
+          status: 400,
+          message: 'User/Password not valid',
+        });
+      }
+
       const { password: __, ...rest } = user;
 
       return {
