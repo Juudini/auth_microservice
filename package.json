@@ -1,10 +1,13 @@
 {
   "name": "auth_microservice",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "Authentication microservice",
+  "author": "Juan Debandi",
   "private": true,
   "license": "UNLICENSED",
+  "repository": {
+    "url": "https://github.com/Juudini/auth_microservice"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
