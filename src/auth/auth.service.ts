@@ -53,7 +53,14 @@ export class AuthService extends PrismaClient implements OnModuleInit {
     const { email, name, password } = signupUserDto;
 
     try {
-      const user = await this.user.findUnique({ where: { email: email } });
+      const user = await this.user.findUnique({
+        where: { email: email },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
 
       if (user) {
         throw new RpcException({
