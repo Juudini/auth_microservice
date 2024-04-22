@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { PrismaClient } from '@prisma/client';
 import { SigninUserDto, SignupUserDto } from './dto';
@@ -18,36 +18,49 @@ export class AuthService extends PrismaClient implements OnModuleInit {
 
   onModuleInit() {
     this.$connect();
-    this.logger.log('MongoDB Connected');
+    this.logger.log('📚 Database Connected');
   }
 
-  async signJWT(payload: JwtPayload) {
+  signJWT = async (payload: JwtPayload) => {
     return this.jwtService.sign(payload);
-  }
+  };
 
-  async verifyToken(token: string) {
+  verifyToken = async (token: string) => {
     try {
-      const { sub, iat, exp, ...user } = this.jwtService.verify(token, {
+      const { sub, iat, exp, ...user } = await this.jwtService.verify(token, {
         secret: envs.jwtSecret,
       });
 
       return {
-        user: user,
-        token: await this.signJWT(user),
+        status: 'success',
+        payload: [
+          {
+            user: user,
+            token: await this.signJWT(user),
+          },
+        ],
       };
     } catch (err) {
-      throw new RpcException({ status: 401, message: 'Invalid Token' });
+      if (err instanceof RpcException) throw err;
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
+      });
     }
-  }
+  };
 
-  async signupUser(signupUserDto: SignupUserDto) {
+  signupUser = async (signupUserDto: SignupUserDto) => {
     const { email, name, password } = signupUserDto;
 
     try {
-      const user = await this.user.findUnique({ where: { email } });
+      const user = await this.user.findUnique({ where: { email: email } });
 
       if (user) {
-        throw new RpcException({ status: 400, message: 'User already exists' });
+        throw new RpcException({
+          status: HttpStatus.CONFLICT,
+          message: 'User already exists',
+          payload: [{ email }],
+        });
       }
       const newUser = await this.user.create({
         data: {
@@ -60,22 +73,40 @@ export class AuthService extends PrismaClient implements OnModuleInit {
       const { password: __, ...rest } = newUser;
 
       return {
-        user: rest,
-        token: await this.signJWT(rest),
+        status: 'success',
+        payload: [
+          {
+            user: rest,
+            token: await this.signJWT(rest),
+          },
+        ],
       };
     } catch (err) {
-      throw new RpcException({ status: 400, message: err.message });
+      if (err instanceof RpcException) throw err;
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
+      });
     }
-  }
-  async signinUser(signinUserDto: SigninUserDto) {
+  };
+
+  signinUser = async (signinUserDto: SigninUserDto) => {
     const { email, password } = signinUserDto;
 
     try {
-      const user = await this.user.findUnique({ where: { email } });
+      const user = await this.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          password: true,
+        },
+      });
 
       if (!user) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.UNAUTHORIZED,
           message: 'User/Password not valid',
         });
       }
@@ -83,7 +114,7 @@ export class AuthService extends PrismaClient implements OnModuleInit {
 
       if (!isPasswordValid) {
         throw new RpcException({
-          status: 400,
+          status: HttpStatus.UNAUTHORIZED,
           message: 'User/Password not valid',
         });
       }
@@ -91,11 +122,20 @@ export class AuthService extends PrismaClient implements OnModuleInit {
       const { password: __, ...rest } = user;
 
       return {
-        user: rest,
-        token: await this.signJWT(rest),
+        status: 'success',
+        payload: [
+          {
+            user: rest,
+            token: await this.signJWT(rest),
+          },
+        ],
       };
     } catch (err) {
-      throw new RpcException({ status: 400, message: err.message });
+      if (err instanceof RpcException) throw err;
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
+      });
     }
-  }
+  };
 }
